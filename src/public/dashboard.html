@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Dashboard</title>
+</head>
+<body>
+  <h3>Dashboard (Agent/Admin)</h3>
+  <!-- Paste a JWT here (e.g., login as an 'agent' or 'admin') -->
+  <input id="t" placeholder="JWT" style="width: 60%;" />
+  <button id="c">Connect</button>
+  <pre id="log" style="white-space: pre-wrap; border:1px solid #ddd; padding:8px;"></pre>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    c.onclick = () => {
+      const s = io({ auth: { token: t.value } });
+      s.on('dash:event', (e) => {
+        // Every time a user sends a message, servers can emit a dash:event
+        log.textContent += JSON.stringify(e) + '\n';
+      });
+      s.on('connect', () => log.textContent += 'connected\n');
+      s.on('disconnect', () => log.textContent += 'disconnected\n');
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>User Chat</title>
+  <!-- Minimal demo UI to test end-to-end flow -->
+</head>
+<body>
+  <h3>User Chat</h3>
+
+  <!-- Simple login/registration -->
+  <input id="email" placeholder="email" />
+  <input id="pass" placeholder="password" type="password" />
+  <button id="reg">Register</button>
+  <button id="log">Login</button>
+
+  <div>Token: <code id="tok"></code></div>
+  <hr/>
+
+  <!-- Chat input + output -->
+  <input id="msg" placeholder="message" />
+  <button id="send">Send</button>
+  <pre id="out" style="white-space: pre-wrap; border:1px solid #ddd; padding:8px;"></pre>
+
+  <!-- Load socket.io client -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    // Store JWT token in-memory (demo only)
+    let token = '';
+    let socket = null;
+
+    // Helper: POST JSON with optional Authorization header
+    async function post(path, body) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const r = await fetch(path, { method:'POST', headers, body: JSON.stringify(body) });
+      return r.json();
+    }
+
+    // Register demo user
+    reg.onclick = async () => {
+      const r = await post('/api/auth/register', { email: email.value, pass: pass.value });
+      out.textContent = 'Register:\n' + JSON.stringify(r, null, 2);
+    };
+
+    // Login and connect socket with auth
+    log.onclick = async () => {
+      const r = await post('/api/auth/login', { email: email.value, pass: pass.value });
+      token = r.token || '';
+      tok.textContent = token ? token.slice(0, 28) + '...' : '(none)';
+
+      // Connect socket with JWT in handshake.auth
+      socket = io({ auth: { token } });
+
+      // Listen for assistant messages pushed from server
+      socket.on('chat:ai', (d) => {
+        out.textContent += `\nAI: ${d.content}`;
+      });
+
+      socket.on('connect', () => console.log('socket connected'));
+      socket.on('disconnect', () => console.log('socket disconnected'));
+    };
+
+    // Send message via REST; also emit a socket event for dashboards
+    send.onclick = async () => {
+      if (!token) return alert('Login first');
+      const text = msg.value.trim();
+      if (!text) return;
+
+      // Call backend /api/chat/send (this triggers OpenAI and emits to socket room)
+      const r = await post('/api/chat/send', { text });
+      out.textContent += `\nYou: ${text}\nAI: ${r.reply}`;
+      msg.value = '';
+
+      // Optional: emit an event for dashboards/analytics
+      socket?.emit('chat:user', { text });
+    };
+  </script>
+</body>
+</html>
